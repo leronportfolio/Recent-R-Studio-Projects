@@ -7,24 +7,125 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(glmnet)
+library(readr)
+library(utils)
+library(purrr)
+library(dplyr)
 ```
 
-## R Markdown
+## Datsets:
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+1. Census income: https://archive.ics.uci.edu/ml/datasets/Adult Potential responses: whether or not making more than 50k; whether or not completed college; etc.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+## Data Description:
+The Census Income data set provides valuable information about individuals and its attributes is allowing us to gain insights into their income levels. The data set includes information such as: age, education, work class, marital status, occupation, and more. Two potential responses of interest that caught my eye is in this data set are whether an individual earns more than $50k per year and whether they have completed college (potential response mentioned above).
 
-```{r cars}
-summary(cars)
+This data set has a substantial number of observations, with each observation representing a unique individual. It contains a combination of categorical and numerical variables, offering a comprehensive view of the individuals characteristics.
+
+The dataset "census" was taken from the https://archive.ics.uci.edu/dataset/2/adult website, where it was downloaded into a zip file called "adult.zip". The zip file was uploaded to R Studio Cloud (Posit Cloud). The column names were labeled as V1 to V15, which was then corrected in Question 1.
+```{r, include=FALSE}
+# Read the dataset from the file and assign it to the 'census' object
+census <- read.table("adult.data", header = FALSE, sep = ",")
 ```
 
-## Including Plots
+## Variable & Analysis Methods:
+For the first question, we can use logistic regression to model the probability of an individual’s income being greater than $50k based on the explanatory variables.
+The investigation aimed to identify the factors associated with an individual earning more than $50,000 per year. Logistic regression was employed to model the probability of income exceeding this threshold, considering variables such as age, education level, occupation, work class, and marital status. 
 
-You can also embed plots, for example:
+For the second question, we can conduct a hypothesis test using a chi-square test or logistic regression to determine the association between completing college and income level.
+The study examined whether completing college has a significant impact on an individual's income level. A chi-square test of independence was conducted, analyzing the association between completing college ("Yes" or "No") and income level (">50K" or "<=50K").
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+## Questions:
+
+### 1.What factors are associated with an individual making more than $50,000 per year?
+
+#### Response variable: Income (>50K or <=50K) 
+#### Explanatory variables: education, race, hours per week
+
+```{r}
+# Assign appropriate column names to the data set due to dataset not properly labeling
+colnames(census) <- c("age", "state.gov", "blank", "education", "workclass", 
+                      "marital_status", "occupation",
+                      "relationship", "race", "sex", 
+                      "capital_gain", "capital_loss",
+                      "hours_per_week", "native_country",
+                      "income")
+
+# Verify the updated column names
+colnames(census)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r, include=FALSE}
+# 2. Fit logistic regression model
+model <- glm(income > 50000 ~ education + race + hours_per_week, data = census, 
+             family = "binomial")
+
+# 3. Summary of the logistic regression model
+summary(model)
+```
+
+```{r}
+# Create a bar plot of education for those making > $50,000 per year
+ggplot(census, aes(x = education, fill = as.character(income > 50000))) +
+  geom_bar(fill = c("TRUE" = "blue")) +
+  labs(x = "Education", y = "Count", fill = "Income > 50K") +
+  ggtitle("Distribution of Income by Education for Those Making > 50k") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+The logistic regression model was fitted to investigate the relationship between income and the variables education, race, and hours per week. The p-values for all variables are extremely high (close to 1 or is 1), which indicates that none of the variables are statistically significant in predicting income.
+The null deviance is zero, and the residual deviance is also close to zero, suggesting a good fit of the model to the data. Based on the given variables (education, race, and hours per week), there is no statistically significant evidence to conclude that any particular factor is associated with income levels above $50,000. Based on the bar plot, the likeness of those who are HS-grad without any further higher education makes more than those who do have a higher education.
+
+### 2. Does completing college have a significant impact on an individual’s income level?
+
+#### Response variable: Income (>50K or <=50K) 
+#### Explanatory variable: Completed college (Yes or No)
+
+```{r}
+# Define the levels for completed college
+completed_college_levels <- c(" Assoc-acdm", " Assoc-voc", " Bachelors", 
+                              " Doctorate", " Masters", " Prof-school")
+
+# Create a new variable indicating completion of college
+census$Completed_college <- ifelse(census$education %in% completed_college_levels, 
+                                   "Yes", "No")
+```
+
+
+```{r}
+# Create a contingency table of Completed_college and Income
+contingency_table <- table(census$Completed_college, census$income)
+
+# Perform a chi-square test of independence
+chi_sq_test <- chisq.test(contingency_table)
+
+# Results of the chi-square test
+chi_sq_test
+
+# Create the bar plot
+ggplot(census, aes(x = Completed_college, fill = income)) +
+  geom_bar() +
+  labs(x = "Completed College", y = "Count", fill = "Income") +
+  ggtitle("Distribution of Income by Completion of College") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+The chi-square test of independence was conducted to examine the association between completing college and an individual's income level. The analysis revealed a significant relationship between these two variables chi-sq = 3079.7, df = 1, and p < 2.2e-16. The large chi-square test statistic suggests a substantial discrepancy between the observed frequencies in the contingency table and the expected frequencies under the assumption of independence. However, the small p-value shows strong evidence against the null hypothesis, which indicates that completing college has a significant impact on an individual's income level. Based on the question of interest, education plays a crucial role in determining income outcomes, with completing college being associated with a higher likelihood of achieving a higher income level.
+
+## Conclusion
+
+The logistic regression model examined the relationship between income and variables such as education, race, and hours per week. The results revealed no statistically significant evidence to conclude that any specific factor is associated with income levels above $50,000. This finding challenges the commonly held notion that education, race, or hours per week alone can reliably predict higher income outcomes. On the other hand, the chi-square test of independence demonstrated a significant association between completing college and income level. This finding suggests that completing college has a substantial impact on an individual's income, with a higher likelihood of achieving a higher income level for those who have completed college. The significant association between completing college and income level reinforces the value of higher education as a pathway to increased earning potential shown the in second question. 
+
+## Appendices
+
+```{r, warning=FALSE}
+# 2. Fit logistic regression model
+model <- glm(income > 50000 ~ education + race + hours_per_week, data = census, 
+             family = "binomial")
+
+# 3. Summary of the logistic regression model
+summary(model)
+```
+
